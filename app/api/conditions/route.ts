@@ -1,0 +1,3 @@
+import {NextRequest,NextResponse} from "next/server";import {LOCATIONS} from "../../../lib/locations";import {buildFishingDays} from "../../../lib/fishing";
+export const dynamic="force-dynamic";
+export async function GET(req:NextRequest){try{const k=req.nextUrl.searchParams.get("location")||"westport",n=Math.min(Math.max(Number(req.nextUrl.searchParams.get("days")||14),1),14),loc=LOCATIONS[k];if(!loc)return NextResponse.json({error:"Unknown fishing area."},{status:400});return NextResponse.json({location:loc,days:await buildFishingDays(loc,n),generatedAt:new Date().toISOString()})}catch(e){console.error(e);return NextResponse.json({error:"Live NOAA/NWS conditions could not be loaded right now. Try Refresh in a moment."},{status:502})}}
