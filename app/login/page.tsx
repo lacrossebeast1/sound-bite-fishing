@@ -1,18 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { createClient } from "../../lib/supabase/client";
 
 export default function LoginPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const params = useSearchParams();
   async function signIn() {
     setBusy(true); setError("");
     try {
       const supabase = createClient();
-      const next = params.get("next") || "/catches";
+      const next = new URLSearchParams(window.location.search).get("next") || "/catches";
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: { redirectTo: `${window.location.origin}/auth/callback?next=${encodeURIComponent(next)}` }
@@ -30,7 +28,6 @@ export default function LoginPage() {
     <p>Your catches, photos, and fishing stats stay private to your account.</p>
     <button className="googleButton" onClick={signIn} disabled={busy}>{busy ? "Connecting…" : "Continue with Google"}</button>
     {error && <p className="authError">{error}</p>}
-    {params.get("error") === "oauth" && <p className="authError">Google sign-in could not be completed. Check your Supabase OAuth settings.</p>}
     <small>By signing in, you agree to use your account responsibly. Your catch records are private by default.</small>
   </section></main>;
 }
