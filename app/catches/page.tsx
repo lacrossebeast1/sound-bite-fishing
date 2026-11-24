@@ -41,7 +41,16 @@ export default function CatchesPage() {
     }));
     setRows(withPhotos); setLoading(false);
   }
-  useEffect(() => {\n    try {\n      const client = createClient();\n      setSupabase(client);\n      void load(client);\n    } catch (e) {\n      setError(e instanceof Error ? e.message : "Supabase is not configured.");\n      setLoading(false);\n    }\n  }, []);
+  useEffect(() => {
+    try {
+      const client = createClient();
+      setSupabase(client);
+      void load(client);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Supabase is not configured.");
+      setLoading(false);
+    }
+  }, []);
 
   const stats = useMemo(() => ({
     total: rows.length,
@@ -52,7 +61,8 @@ export default function CatchesPage() {
   async function addCatch(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError("");
     try {
-      if (!supabase) throw new Error("Supabase is not configured. Add the Supabase environment variables in Vercel.");\n      const { data: { user } } = await supabase.auth.getUser();
+      if (!supabase) throw new Error("Supabase is not configured. Add the Supabase environment variables in Vercel.");
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Please sign in again.");
       let photoPath: string | null = null;
       if (photo) {
@@ -81,7 +91,8 @@ export default function CatchesPage() {
   }
 
   async function deleteCatch(row: CatchRow) {
-    if (!window.confirm("Delete this catch from your private log?")) return;\n    if (!supabase) return;
+    if (!window.confirm("Delete this catch from your private log?")) return;
+    if (!supabase) return;
     setError("");
     if (row.photo_path) await supabase.storage.from("catch-photos").remove([row.photo_path]);
     const { error } = await supabase.from("catches").delete().eq("id", row.id);
