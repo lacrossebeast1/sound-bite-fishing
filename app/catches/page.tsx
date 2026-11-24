@@ -12,7 +12,7 @@ type CatchRow = {
 
 export default function CatchesPage() {
   const router = useRouter();
-  const [supabase] = useState(() => createClient());
+  const [supabase, setSupabase] = useState<ReturnType<typeof createClient> | null>(null);
   const [userEmail, setUserEmail] = useState("");
   const [rows, setRows] = useState<CatchRow[]>([]);
   const [loading, setLoading] = useState(true);
@@ -27,21 +27,21 @@ export default function CatchesPage() {
   const [notes, setNotes] = useState("");
   const [photo, setPhoto] = useState<File | null>(null);
 
-  async function load() {
+  async function load(client: ReturnType<typeof createClient>) {
     setLoading(true); setError("");
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: { user }, error: userError } = await client.auth.getUser();
     if (userError || !user) { router.replace("/login"); return; }
     setUserEmail(user.email || "");
-    const { data, error: listError } = await supabase.from("catches").select("*").order("caught_at", { ascending: false });
+    const { data, error: listError } = await client.from("catches").select("*").order("caught_at", { ascending: false });
     if (listError) { setError(listError.message); setLoading(false); return; }
     const withPhotos = await Promise.all((data || []).map(async (row: CatchRow) => {
       if (!row.photo_path) return row;
-      const { data: signed } = await supabase.storage.from("catch-photos").createSignedUrl(row.photo_path, 60 * 30);
+      const { data: signed } = await client.storage.from("catch-photos").createSignedUrl(row.photo_path, 60 * 30);
       return { ...row, photoUrl: signed?.signedUrl || null };
     }));
     setRows(withPhotos); setLoading(false);
   }
-  useEffect(() => { load(); }, []);
+  useEffect(() => {\n    try {\n      const client = createClient();\n      setSupabase(client);\n      void load(client);\n    } catch (e) {\n      setError(e instanceof Error ? e.message : "Supabase is not configured.");\n      setLoading(false);\n    }\n  }, []);
 
   const stats = useMemo(() => ({
     total: rows.length,
@@ -52,7 +52,7 @@ export default function CatchesPage() {
   async function addCatch(event: FormEvent) {
     event.preventDefault(); setSaving(true); setError("");
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      if (!supabase) throw new Error("Supabase is not configured. Add the Supabase environment variables in Vercel.");\n      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Please sign in again.");
       let photoPath: string | null = null;
       if (photo) {
@@ -75,20 +75,20 @@ export default function CatchesPage() {
       setSpecies(""); setLure(""); setWeather(""); setTide(""); setNotes(""); setPhoto(null);
       const fileInput = document.getElementById("catch-photo") as HTMLInputElement | null;
       if (fileInput) fileInput.value = "";
-      await load();
+      await load(supabase);
     } catch (e) { setError(e instanceof Error ? e.message : "Could not save catch."); }
     finally { setSaving(false); }
   }
 
   async function deleteCatch(row: CatchRow) {
-    if (!window.confirm("Delete this catch from your private log?")) return;
+    if (!window.confirm("Delete this catch from your private log?")) return;\n    if (!supabase) return;
     setError("");
     if (row.photo_path) await supabase.storage.from("catch-photos").remove([row.photo_path]);
     const { error } = await supabase.from("catches").delete().eq("id", row.id);
-    if (error) setError(error.message); else await load();
+    if (error) setError(error.message); else if (supabase) await load(supabase);
   }
 
-  async function signOut() { await supabase.auth.signOut(); router.replace("/"); router.refresh(); }
+  async function signOut() { if (!supabase) return; await supabase.auth.signOut(); router.replace("/"); router.refresh(); }
 
   return <main className="journalPage">
     <header className="journalHeader"><a className="brand" href="/">Sound <span>Bite</span></a><nav><a href="/">Fishing planner</a><span>{userEmail}</span><button onClick={signOut}>Sign out</button></nav></header>
